@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "VPC"
+
+Parameters:
+  Prefix:
+    Type: String
+    Description: "Resource name prefix"
+  Environment:
+    Type: String
+    Description: "Environment name"
+  Owner:
+    Type: String
+    Description: "Owner name"
+  CostCenter:
+    Type: String
+    Description: "Cost Center name"
+  ApplicationRole:
+    Type: String
+    Description: "Application role"
+  ApplicationId:
+    Type: String
+    Description: "Application Id"
+
+  CidrPrefix:
+    Type: String
+    Description: "Prefix of IPv4 CIDR block"
+  NumberAZs:
+    Type: Number
+    Description: "Number of Availability Zones"
+    Default: 1
+    MinValue: 1
+    MaxValue: 3
+
+Mappings:
+  Cidr:
+    Vpc:
+      Suffix: "0.0/16"
+    ZoneA:
+      PublicSubnet: "128.0/20"
+      PrivateSubnet: "0.0/19"
+    ZoneB:
+      PublicSubnet: "144.0/20"
+      PrivateSubnet: "32.0/199"
+    ZoneC:
+      PublicSubnet: "160.0/20"
+      PrivateSubnet: "64.0/19"
+
+Conditions:
+  EnableZoneB: !Or [ !Equals [ !Ref NumberAZs, 2 ], !Condition EnableZoneC ]
+  EnableZoneC: !Equals [ !Ref NumberAZs, 3 ]
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, Vpc, Suffix ] ] ]
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Sub "${Prefix}-vpc"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: CostCenter
+          Value: !Ref CostCenter
+        - Key: ApplicationRole
+          Value: !Ref ApplicationRole
+        - Key: ApplicationId
+          Value: !Ref ApplicationId
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${Prefix}-igw"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: CostCenter
+          Value: !Ref CostCenter
+        - Key: ApplicationRole
+          Value: !Ref ApplicationRole
+        - Key: ApplicationId
+          Value: !Ref ApplicationId
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref Vpc
+
+  PublicSubnetRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub "${Prefix}-public-${AWS::Region}"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: CostCenter
+          Value: !Ref CostCenter
+        - Key: ApplicationRole
+          Value: !Ref ApplicationRole
+        - Key: ApplicationId
+          Value: !Ref ApplicationId
+
+  InternetGatewayRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref PublicSubnetRouteTable
+    DependsOn: InternetGatewayAttachment
+
+  ZoneA:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: vpc-az.yaml
+      TimeoutInMinutes: 60
+      Parameters:
+        Prefix: !Ref Prefix
+        Environment: !Ref Environment
+        Owner: !Ref Owner
+        CostCenter: !Ref CostCenter
+        ApplicationRole: !Ref ApplicationRole
+        ApplicationId: !Ref ApplicationId
+        VpcId: !Ref Vpc
+        AvailabilityZone: !Select [ 0, !GetAZs "" ]
+        PublicSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneA, PublicSubnet ] ] ]
+        PrivateSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneA, PrivateSubnet ] ] ]
+        PublicSubnetRouteTable: !Ref PublicSubnetRouteTable
+    DependsOn: InternetGatewayRoute
+
+  ZoneB:
+    Condition: EnableZoneB
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: vpc-az.yaml
+      TimeoutInMinutes: 60
+      Parameters:
+        Prefix: !Ref Prefix
+        Environment: !Ref Environment
+        Owner: !Ref Owner
+        CostCenter: !Ref CostCenter
+        ApplicationRole: !Ref ApplicationRole
+        ApplicationId: !Ref ApplicationId
+        VpcId: !Ref Vpc
+        AvailabilityZone: !Select [ 0, !GetAZs "" ]
+        PublicSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneB, PublicSubnet ] ] ]
+        PrivateSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneB, PrivateSubnet ] ] ]
+        PublicSubnetRouteTable: !Ref PublicSubnetRouteTable
+    DependsOn: InternetGatewayRoute
+
+  ZoneC:
+    Condition: EnableZoneC
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: vpc-az.yaml
+      TimeoutInMinutes: 60
+      Parameters:
+        Prefix: !Ref Prefix
+        Environment: !Ref Environment
+        Owner: !Ref Owner
+        CostCenter: !Ref CostCenter
+        ApplicationRole: !Ref ApplicationRole
+        ApplicationId: !Ref ApplicationId
+        VpcId: !Ref Vpc
+        AvailabilityZone: !Select [ 0, !GetAZs "" ]
+        PublicSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneC, PublicSubnet ] ] ]
+        PrivateSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneC, PrivateSubnet ] ] ]
+        PublicSubnetRouteTable: !Ref PublicSubnetRouteTable
+    DependsOn: InternetGatewayRoute
+
+Outputs:
+  Vpc:
+    Value: !Ref Vpc
+  PublicSubnets:
+    Value: !Join
+      - ","
+      - - !GetAtt ZoneA.Outputs.PublicSubnet
+        - !If [ EnableZoneB, !GetAtt ZoneB.Outputs.PublicSubnet, !Ref AWS::NoValue ]
+        - !If [ EnableZoneC, !GetAtt ZoneC.Outputs.PublicSubnet, !Ref AWS::NoValue ]
+  PrivateSubnets:
+    Value: !Join
+      - ","
+      - - !GetAtt ZoneA.Outputs.PrivateSubnet
+        - !If [ EnableZoneB, !GetAtt ZoneB.Outputs.PrivateSubnet, !Ref AWS::NoValue ]
+        - !If [ EnableZoneC, !GetAtt ZoneC.Outputs.PrivateSubnet, !Ref AWS::NoValue ]

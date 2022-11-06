@@ -1,0 +1,154 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "VPC :: Availability Zone"
+
+Parameters:
+  Prefix:
+    Type: String
+    Description: "Resource name prefix"
+  Environment:
+    Type: String
+    Description: "Environment name"
+  Owner:
+    Type: String
+    Description: "Owner name"
+  CostCenter:
+    Type: String
+    Description: "Cost Center name"
+  ApplicationRole:
+    Type: String
+    Description: "Application role"
+  ApplicationId:
+    Type: String
+    Description: "Application Id"
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: "VPC ID"
+  AvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: "Availability Zone name of current AWS Region"
+  PublicSubnetCidr:
+    Type: String
+    Description: "Public subnet CIDR block"
+  PrivateSubnetCidr:
+    Type: String
+    Description: "Private subnet CIDR block"
+  PublicSubnetRouteTable:
+    Type: String
+    Description: "Public subnet route table Id"
+
+Resources:
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      CidrBlock: !Ref PublicSubnetCidr
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub "${Prefix}-public-${AvailabilityZone}"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: CostCenter
+          Value: !Ref CostCenter
+        - Key: ApplicationRole
+          Value: !Ref ApplicationRole
+        - Key: ApplicationId
+          Value: !Ref ApplicationId
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone
+      CidrBlock: !Ref PrivateSubnetCidr
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub "${Prefix}-private-${AvailabilityZone}"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: CostCenter
+          Value: !Ref CostCenter
+        - Key: ApplicationRole
+          Value: !Ref ApplicationRole
+        - Key: ApplicationId
+          Value: !Ref ApplicationId
+
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: "vpc"
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub "${Prefix}-natgw-${AvailabilityZone}"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: CostCenter
+          Value: !Ref CostCenter
+        - Key: ApplicationRole
+          Value: !Ref ApplicationRole
+        - Key: ApplicationId
+          Value: !Ref ApplicationId
+
+  PrivateSubnetRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: !Sub "${Prefix}-private-${AvailabilityZone}"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Owner
+          Value: !Ref Owner
+        - Key: CostCenter
+          Value: !Ref CostCenter
+        - Key: ApplicationRole
+          Value: !Ref ApplicationRole
+        - Key: ApplicationId
+          Value: !Ref ApplicationId
+
+  NatGatewayRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !Ref NatGateway
+      RouteTableId: !Ref PrivateSubnetRouteTable
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicSubnetRouteTable
+      SubnetId: !Ref PublicSubnet
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateSubnetRouteTable
+      SubnetId: !Ref PrivateSubnet
+
+Outputs:
+  PublicSubnet:
+    Value: !Ref PublicSubnet
+  PrivateSubnet:
+    Value: !Ref PrivateSubnet
+  PrivateSubnetRouteTable:
+    Value: !Ref PrivateSubnetRouteTable
+  NatGateway:
+    Value: !Ref NatGateway
+  NatGatewayEIP:
+    Value: !Ref NatGatewayEIP
