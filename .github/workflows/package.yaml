@@ -1,0 +1,38 @@
+name: Continuous Delivery (CD)
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      BUCKET_NAME: vitalibo-public-us-east-1
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Package and Publish AWS CloudFormation templates
+        run: |
+          for MODULE in $(ls -d */); do
+            MODULE=${MODULE%/}
+            aws cloudformation package \
+              --template-file "$MODULE/$MODULE.yaml" \
+              --s3-bucket $BUCKET_NAME \
+              --s3-prefix "$MODULE/${{ github.run_number }}" |
+            aws s3 cp - \
+              "s3://$BUCKET_NAME/$MODULE/${{ github.run_number }}/$MODULE.template"
+          done
