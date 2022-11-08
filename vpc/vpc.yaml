@@ -5,6 +5,7 @@ Parameters:
   Prefix:
     Type: String
     Description: "Resource name prefix"
+
   Environment:
     Type: String
     Description: "Environment name"
@@ -24,12 +25,31 @@ Parameters:
   CidrPrefix:
     Type: String
     Description: "Prefix of IPv4 CIDR block"
+    Default: "10.0"
   NumberAZs:
     Type: Number
     Description: "Number of Availability Zones"
     Default: 1
     MinValue: 1
     MaxValue: 3
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Stack Parameters
+        Parameters:
+          - Prefix
+          - CidrPrefix
+          - NumberAZs
+      - Label:
+          default: Tag Parameters
+        Parameters:
+          - Environment
+          - Owner
+          - CostCenter
+          - ApplicationId
+          - ApplicationRole
 
 Mappings:
   Cidr:

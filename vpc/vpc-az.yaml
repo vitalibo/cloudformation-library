@@ -5,6 +5,7 @@ Parameters:
   Prefix:
     Type: String
     Description: "Resource name prefix"
+
   Environment:
     Type: String
     Description: "Environment name"
