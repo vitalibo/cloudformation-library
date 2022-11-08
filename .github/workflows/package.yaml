@@ -35,4 +35,7 @@ jobs:
               --s3-prefix "$MODULE/${{ github.run_number }}" |
             aws s3 cp - \
               "s3://$BUCKET_NAME/$MODULE/${{ github.run_number }}/$MODULE.template"
+            aws s3 cp \
+              "s3://$BUCKET_NAME/$MODULE/${{ github.run_number }}/$MODULE.template" \
+              "s3://$BUCKET_NAME/$MODULE/latest/$MODULE.template"
           done
