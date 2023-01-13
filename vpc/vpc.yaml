@@ -2,10 +2,9 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: "VPC"
 
 Parameters:
-  Prefix:
+  Name:
     Type: String
-    Description: "Resource name prefix"
-
+    Description: "Resource name"
   Environment:
     Type: String
     Description: "Environment name"
@@ -31,7 +30,7 @@ Parameters:
     Description: "Number of Availability Zones"
     Default: 1
     MinValue: 1
-    MaxValue: 3
+    MaxValue: 4
 
 Metadata:
   AWS::CloudFormation::Interface:
@@ -39,7 +38,7 @@ Metadata:
       - Label:
           default: Stack Parameters
         Parameters:
-          - Prefix
+          - Name
           - CidrPrefix
           - NumberAZs
       - Label:
@@ -60,14 +59,18 @@ Mappings:
       PrivateSubnet: "0.0/19"
     ZoneB:
       PublicSubnet: "144.0/20"
-      PrivateSubnet: "32.0/199"
+      PrivateSubnet: "32.0/19"
     ZoneC:
       PublicSubnet: "160.0/20"
       PrivateSubnet: "64.0/19"
+    ZoneD:
+      PublicSubnet: "176.0/20"
+      PrivateSubnet: "96.0/19"
 
 Conditions:
-  EnableZoneB: !Or [ !Equals [ !Ref NumberAZs, 2 ], !Condition EnableZoneC ]
-  EnableZoneC: !Equals [ !Ref NumberAZs, 3 ]
+  EnableZoneB: !Or [ !Equals [ !Ref NumberAZs, 2 ], !Condition EnableZoneC, !Condition EnableZoneD ]
+  EnableZoneC: !Or [ !Equals [ !Ref NumberAZs, 3 ], !Condition EnableZoneD ]
+  EnableZoneD: !Equals [ !Ref NumberAZs, 4 ]
 
 Resources:
   Vpc:
@@ -79,7 +82,7 @@ Resources:
       InstanceTenancy: default
       Tags:
         - Key: Name
-          Value: !Sub "${Prefix}-vpc"
+          Value: !Sub "${Name}-vpc"
         - Key: Environment
           Value: !Ref Environment
         - Key: Owner
@@ -96,7 +99,7 @@ Resources:
     Properties:
       Tags:
         - Key: Name
-          Value: !Sub "${Prefix}-igw"
+          Value: !Sub "${Name}-igw"
         - Key: Environment
           Value: !Ref Environment
         - Key: Owner
@@ -120,7 +123,7 @@ Resources:
       VpcId: !Ref Vpc
       Tags:
         - Key: Name
-          Value: !Sub "${Prefix}-public-${AWS::Region}"
+          Value: !Sub "${Name}-public-${AWS::Region}"
         - Key: Environment
           Value: !Ref Environment
         - Key: Owner
@@ -146,7 +149,7 @@ Resources:
       TemplateURL: vpc-az.yaml
       TimeoutInMinutes: 60
       Parameters:
-        Prefix: !Ref Prefix
+        Name: !Ref Name
         Environment: !Ref Environment
         Owner: !Ref Owner
         CostCenter: !Ref CostCenter
@@ -166,14 +169,14 @@ Resources:
       TemplateURL: vpc-az.yaml
       TimeoutInMinutes: 60
       Parameters:
-        Prefix: !Ref Prefix
+        Name: !Ref Name
         Environment: !Ref Environment
         Owner: !Ref Owner
         CostCenter: !Ref CostCenter
         ApplicationRole: !Ref ApplicationRole
         ApplicationId: !Ref ApplicationId
         VpcId: !Ref Vpc
-        AvailabilityZone: !Select [ 0, !GetAZs "" ]
+        AvailabilityZone: !Select [ 1, !GetAZs "" ]
         PublicSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneB, PublicSubnet ] ] ]
         PrivateSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneB, PrivateSubnet ] ] ]
         PublicSubnetRouteTable: !Ref PublicSubnetRouteTable
@@ -186,16 +189,36 @@ Resources:
       TemplateURL: vpc-az.yaml
       TimeoutInMinutes: 60
       Parameters:
-        Prefix: !Ref Prefix
+        Name: !Ref Name
         Environment: !Ref Environment
         Owner: !Ref Owner
         CostCenter: !Ref CostCenter
         ApplicationRole: !Ref ApplicationRole
         ApplicationId: !Ref ApplicationId
         VpcId: !Ref Vpc
-        AvailabilityZone: !Select [ 0, !GetAZs "" ]
+        AvailabilityZone: !Select [ 2, !GetAZs "" ]
         PublicSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneC, PublicSubnet ] ] ]
         PrivateSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneC, PrivateSubnet ] ] ]
+        PublicSubnetRouteTable: !Ref PublicSubnetRouteTable
+    DependsOn: InternetGatewayRoute
+
+  ZoneD:
+    Condition: EnableZoneD
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: vpc-az.yaml
+      TimeoutInMinutes: 60
+      Parameters:
+        Name: !Ref Name
+        Environment: !Ref Environment
+        Owner: !Ref Owner
+        CostCenter: !Ref CostCenter
+        ApplicationRole: !Ref ApplicationRole
+        ApplicationId: !Ref ApplicationId
+        VpcId: !Ref Vpc
+        AvailabilityZone: !Select [ 3, !GetAZs "" ]
+        PublicSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneD, PublicSubnet ] ] ]
+        PrivateSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneD, PrivateSubnet ] ] ]
         PublicSubnetRouteTable: !Ref PublicSubnetRouteTable
     DependsOn: InternetGatewayRoute
 
@@ -208,9 +231,11 @@ Outputs:
       - - !GetAtt ZoneA.Outputs.PublicSubnet
         - !If [ EnableZoneB, !GetAtt ZoneB.Outputs.PublicSubnet, !Ref AWS::NoValue ]
         - !If [ EnableZoneC, !GetAtt ZoneC.Outputs.PublicSubnet, !Ref AWS::NoValue ]
+        - !If [ EnableZoneD, !GetAtt ZoneD.Outputs.PublicSubnet, !Ref AWS::NoValue ]
   PrivateSubnets:
     Value: !Join
       - ","
       - - !GetAtt ZoneA.Outputs.PrivateSubnet
         - !If [ EnableZoneB, !GetAtt ZoneB.Outputs.PrivateSubnet, !Ref AWS::NoValue ]
         - !If [ EnableZoneC, !GetAtt ZoneC.Outputs.PrivateSubnet, !Ref AWS::NoValue ]
+        - !If [ EnableZoneD, !GetAtt ZoneD.Outputs.PrivateSubnet, !Ref AWS::NoValue ]

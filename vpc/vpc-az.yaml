@@ -2,10 +2,9 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: "VPC :: Availability Zone"
 
 Parameters:
-  Prefix:
+  Name:
     Type: String
-    Description: "Resource name prefix"
-
+    Description: "Resource name"
   Environment:
     Type: String
     Description: "Environment name"
@@ -48,7 +47,7 @@ Resources:
       VpcId: !Ref VpcId
       Tags:
         - Key: Name
-          Value: !Sub "${Prefix}-public-${AvailabilityZone}"
+          Value: !Sub "${Name}-public-${AvailabilityZone}"
         - Key: Environment
           Value: !Ref Environment
         - Key: Owner
@@ -69,7 +68,7 @@ Resources:
       VpcId: !Ref VpcId
       Tags:
         - Key: Name
-          Value: !Sub "${Prefix}-private-${AvailabilityZone}"
+          Value: !Sub "${Name}-private-${AvailabilityZone}"
         - Key: Environment
           Value: !Ref Environment
         - Key: Owner
@@ -93,7 +92,7 @@ Resources:
       SubnetId: !Ref PublicSubnet
       Tags:
         - Key: Name
-          Value: !Sub "${Prefix}-natgw-${AvailabilityZone}"
+          Value: !Sub "${Name}-natgw-${AvailabilityZone}"
         - Key: Environment
           Value: !Ref Environment
         - Key: Owner
@@ -111,7 +110,7 @@ Resources:
       VpcId: !Ref VpcId
       Tags:
         - Key: Name
-          Value: !Sub "${Prefix}-private-${AvailabilityZone}"
+          Value: !Sub "${Name}-private-${AvailabilityZone}"
         - Key: Environment
           Value: !Ref Environment
         - Key: Owner
