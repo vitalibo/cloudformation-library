@@ -5,22 +5,6 @@ Parameters:
   Name:
     Type: String
     Description: "Resource name"
-  Environment:
-    Type: String
-    Description: "Environment name"
-  Owner:
-    Type: String
-    Description: "Owner name"
-  CostCenter:
-    Type: String
-    Description: "Cost Center name"
-  ApplicationRole:
-    Type: String
-    Description: "Application role"
-  ApplicationId:
-    Type: String
-    Description: "Application Id"
-
   CidrPrefix:
     Type: String
     Description: "Prefix of IPv4 CIDR block"
@@ -41,14 +25,6 @@ Metadata:
           - Name
           - CidrPrefix
           - NumberAZs
-      - Label:
-          default: Tag Parameters
-        Parameters:
-          - Environment
-          - Owner
-          - CostCenter
-          - ApplicationId
-          - ApplicationRole
 
 Mappings:
   Cidr:
@@ -83,16 +59,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${Name}-vpc"
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Owner
-          Value: !Ref Owner
-        - Key: CostCenter
-          Value: !Ref CostCenter
-        - Key: ApplicationRole
-          Value: !Ref ApplicationRole
-        - Key: ApplicationId
-          Value: !Ref ApplicationId
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -100,16 +66,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${Name}-igw"
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Owner
-          Value: !Ref Owner
-        - Key: CostCenter
-          Value: !Ref CostCenter
-        - Key: ApplicationRole
-          Value: !Ref ApplicationRole
-        - Key: ApplicationId
-          Value: !Ref ApplicationId
 
   InternetGatewayAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -124,16 +80,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${Name}-public-${AWS::Region}"
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Owner
-          Value: !Ref Owner
-        - Key: CostCenter
-          Value: !Ref CostCenter
-        - Key: ApplicationRole
-          Value: !Ref ApplicationRole
-        - Key: ApplicationId
-          Value: !Ref ApplicationId
 
   InternetGatewayRoute:
     Type: AWS::EC2::Route
@@ -150,11 +96,6 @@ Resources:
       TimeoutInMinutes: 60
       Parameters:
         Name: !Ref Name
-        Environment: !Ref Environment
-        Owner: !Ref Owner
-        CostCenter: !Ref CostCenter
-        ApplicationRole: !Ref ApplicationRole
-        ApplicationId: !Ref ApplicationId
         VpcId: !Ref Vpc
         AvailabilityZone: !Select [ 0, !GetAZs "" ]
         PublicSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneA, PublicSubnet ] ] ]
@@ -170,11 +111,6 @@ Resources:
       TimeoutInMinutes: 60
       Parameters:
         Name: !Ref Name
-        Environment: !Ref Environment
-        Owner: !Ref Owner
-        CostCenter: !Ref CostCenter
-        ApplicationRole: !Ref ApplicationRole
-        ApplicationId: !Ref ApplicationId
         VpcId: !Ref Vpc
         AvailabilityZone: !Select [ 1, !GetAZs "" ]
         PublicSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneB, PublicSubnet ] ] ]
@@ -190,11 +126,6 @@ Resources:
       TimeoutInMinutes: 60
       Parameters:
         Name: !Ref Name
-        Environment: !Ref Environment
-        Owner: !Ref Owner
-        CostCenter: !Ref CostCenter
-        ApplicationRole: !Ref ApplicationRole
-        ApplicationId: !Ref ApplicationId
         VpcId: !Ref Vpc
         AvailabilityZone: !Select [ 2, !GetAZs "" ]
         PublicSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneC, PublicSubnet ] ] ]
@@ -210,11 +141,6 @@ Resources:
       TimeoutInMinutes: 60
       Parameters:
         Name: !Ref Name
-        Environment: !Ref Environment
-        Owner: !Ref Owner
-        CostCenter: !Ref CostCenter
-        ApplicationRole: !Ref ApplicationRole
-        ApplicationId: !Ref ApplicationId
         VpcId: !Ref Vpc
         AvailabilityZone: !Select [ 3, !GetAZs "" ]
         PublicSubnetCidr: !Join [ ".", [ !Ref CidrPrefix, !FindInMap [ Cidr, ZoneD, PublicSubnet ] ] ]

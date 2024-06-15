@@ -5,22 +5,6 @@ Parameters:
   Name:
     Type: String
     Description: "Resource name"
-  Environment:
-    Type: String
-    Description: "Environment name"
-  Owner:
-    Type: String
-    Description: "Owner name"
-  CostCenter:
-    Type: String
-    Description: "Cost Center name"
-  ApplicationRole:
-    Type: String
-    Description: "Application role"
-  ApplicationId:
-    Type: String
-    Description: "Application Id"
-
   VpcId:
     Type: AWS::EC2::VPC::Id
     Description: "VPC ID"
@@ -48,16 +32,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${Name}-public-${AvailabilityZone}"
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Owner
-          Value: !Ref Owner
-        - Key: CostCenter
-          Value: !Ref CostCenter
-        - Key: ApplicationRole
-          Value: !Ref ApplicationRole
-        - Key: ApplicationId
-          Value: !Ref ApplicationId
 
   PrivateSubnet:
     Type: AWS::EC2::Subnet
@@ -69,16 +43,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${Name}-private-${AvailabilityZone}"
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Owner
-          Value: !Ref Owner
-        - Key: CostCenter
-          Value: !Ref CostCenter
-        - Key: ApplicationRole
-          Value: !Ref ApplicationRole
-        - Key: ApplicationId
-          Value: !Ref ApplicationId
 
   NatGatewayEIP:
     Type: AWS::EC2::EIP
@@ -93,16 +57,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${Name}-natgw-${AvailabilityZone}"
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Owner
-          Value: !Ref Owner
-        - Key: CostCenter
-          Value: !Ref CostCenter
-        - Key: ApplicationRole
-          Value: !Ref ApplicationRole
-        - Key: ApplicationId
-          Value: !Ref ApplicationId
 
   PrivateSubnetRouteTable:
     Type: AWS::EC2::RouteTable
@@ -111,16 +65,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${Name}-private-${AvailabilityZone}"
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Owner
-          Value: !Ref Owner
-        - Key: CostCenter
-          Value: !Ref CostCenter
-        - Key: ApplicationRole
-          Value: !Ref ApplicationRole
-        - Key: ApplicationId
-          Value: !Ref ApplicationId
 
   NatGatewayRoute:
     Type: AWS::EC2::Route
