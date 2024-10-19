@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  Name:
+    Type: String
+    Description: "Resource name"
+
+  Vpc:
+    Type: AWS::EC2::VPC::Id
+    Description: "VPC ID"
+
+  PrivateSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: "List of private subnets"
+
+  DomainName:
+    Type: String
+    Description: "Domain name"
+
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: "Hosted zone ID"
+
+  CertificateArn:
+    Type: String
+    Description: "ARN of the certificate for the domain"
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Stack Parameters
+        Parameters:
+          - Name
+          - DomainName
+          - HostedZoneId
+          - CertificateArn
+
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${Name}-api"
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Weight: 1
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 1
+      Configuration:
+        ExecuteCommandConfiguration:
+          Logging: DEFAULT
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${Name}-api-nlb-sg"
+      GroupDescription: "Used by Network Load Balancer"
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "${Name}-api-nlb"
+      Type: network
+      Scheme: internal
+      Subnets: !Ref PrivateSubnets
+      IpAddressType: ipv4
+      SecurityGroups:
+        - !Ref SecurityGroup
+      LoadBalancerAttributes:
+        - Key: load_balancing.cross_zone.enabled
+          Value: true
+        - Key: zonal_shift.config.enabled
+          Value: false
+
+  VpcLink:
+    Type: AWS::ApiGateway::VpcLink
+    Properties:
+      Name: !Sub "${Name}-api-vpclink"
+      TargetArns:
+        - !GetAtt LoadBalancer.LoadBalancerArn
+
+  RestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${Name}-api"
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  RestApiResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestApi
+      ParentId: !GetAtt RestApi.RootResourceId
+      PathPart: "{proxy+}"
+
+  RestApiMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestApi
+      ResourceId: !Ref RestApiResource
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      RequestParameters:
+        "method.request.path.proxy": true
+      Integration:
+        Type: HTTP_PROXY
+        ConnectionType: VPC_LINK
+        IntegrationHttpMethod: ANY
+        ConnectionId: !Ref VpcLink
+        Uri: !Sub "http://${LoadBalancer.DNSName}:${!stageVariables.nlbPort}/{proxy}"
+        RequestParameters:
+          "integration.request.path.proxy": "method.request.path.proxy"
+
+  RestApiDomainName:
+    Type: AWS::ApiGateway::DomainName
+    Properties:
+      RegionalCertificateArn: !Ref CertificateArn
+      DomainName: !Ref DomainName
+      SecurityPolicy: TLS_1_2
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  RecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub "${DomainName}."
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt RestApiDomainName.RegionalDomainName
+        HostedZoneId: !GetAtt RestApiDomainName.RegionalHostedZoneId
+
+Outputs:
+  ClusterArn:
+    Value: !GetAtt Cluster.Arn
+    Description: "ECS Cluster ARN"
+    Export:
+      Name: !Sub "${Name}-ClusterArn"
+
+  RestApi:
+    Value: !Ref RestApi
+    Description: "API Gateway REST API"
+    Export:
+      Name: !Sub "${Name}-RestApi"
+
+  LoadBalancerArn:
+    Value: !GetAtt LoadBalancer.LoadBalancerArn
+    Description: "Network Load Balancer ARN"
+    Export:
+      Name: !Sub "${Name}-LoadBalancerArn"
+
+  LoadBalancerSecurityGroup:
+    Value: !Ref SecurityGroup
+    Description: "Security Group for the Network Load Balancer"
+    Export:
+      Name: !Sub "${Name}-LoadBalancerSecurityGroup"

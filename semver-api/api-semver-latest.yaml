@@ -1,0 +1,92 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  Name:
+    Type: String
+    Description: "Resource name"
+
+  DomainName:
+    Type: String
+    Description: "Domain name"
+
+  Major:
+    Type: Number
+    Description: "Major version"
+    MinValue: 0
+
+  Minor:
+    Type: Number
+    Description: "Minor version"
+    MinValue: 1
+
+  Patch:
+    Type: Number
+    Description: "Patch version"
+    MinValue: 0
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Stack Parameters
+        Parameters:
+          - Name
+          - DomainName
+      - Label:
+          default: Semantic Version Parameters
+        Parameters:
+          - Major
+          - Minor
+          - Patch
+
+Resources:
+  Deployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId:
+        Fn::ImportValue: !Sub "${Name}-RestApi"
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub
+        - "API-Gateway-Execution-Logs_${RestApiId}/latest"
+        - RestApiId: !ImportValue
+            Fn::Sub: "${Name}-RestApi"
+      RetentionInDays: 30
+
+  Stage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId:
+        Fn::ImportValue: !Sub "${Name}-RestApi"
+      DeploymentId: !Ref Deployment
+      StageName: latest
+      AccessLogSetting:
+        DestinationArn: !GetAtt LogGroup.Arn
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          MetricsEnabled: true
+          DataTraceEnabled: true
+          LoggingLevel: INFO
+      Variables:
+        nlbPort: !Sub "${Major}${Minor}"
+
+  PathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref DomainName
+      RestApiId:
+        Fn::ImportValue: !Sub "${Name}-RestApi"
+      Stage: !Ref Stage
+      BasePath: latest
+
+Outputs:
+  StageURL:
+    Value: !Sub "https://${DomainName}/latest"
+    Description: "API stage URL"
+
+  Version:
+    Value: !Sub "${Major}.${Minor}.${Patch}"
+    Description: "Version of the API"
