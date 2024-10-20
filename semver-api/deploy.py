@@ -40,6 +40,8 @@ parameter_overrides = pop('parameter-overrides')
 major, minor, patch = (pop('version') or discover_version()).split('.')
 update_latest = pop('no-update-latest', False) is None
 
+print('set -e;')
+
 cmd = (
     'aws cloudformation deploy',
     '--stack-name', stack_name + '-api',
@@ -47,7 +49,7 @@ cmd = (
     '--parameter-overrides', parameter_overrides,
     *argv
 )
-print(' '.join(cmd))
+print('echo "Waiting for API shared stack to be created/updated...";', ' '.join(cmd), ';')
 
 cmd = (
     'aws cloudformation deploy',
@@ -56,7 +58,7 @@ cmd = (
     '--parameter-overrides', parameter_overrides, f'Major={major}', f'Minor={minor}', f'Patch={patch}',
     *argv
 )
-print(' '.join(cmd))
+print(f'echo "Waiting for API endpoint /v{major}.{minor} to be created/updated...";', ' '.join(cmd), ';')
 
 cmd = (
     'aws cloudformation deploy',
@@ -67,4 +69,4 @@ cmd = (
 )
 
 if update_latest:
-    print(' '.join(cmd))
+    print(f'echo "Waiting for API endpoint /latest to be created/updated...";', ' '.join(cmd), ';')

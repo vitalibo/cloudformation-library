@@ -51,7 +51,7 @@ Parameters:
   Minor:
     Type: Number
     Description: "Minor version"
-    MinValue: 1
+    MinValue: 0
 
   Patch:
     Type: Number
