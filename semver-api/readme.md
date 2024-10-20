@@ -1,8 +1,8 @@
 # Semantic Versioning API
 
-Quite simple, but powerful and scalable idea to manage different versions of API in a single API Gateway endpoint that
-deployed on ECS Fargate. The idea is to use API Gateway to route requests to different ports of Network Load Balancer
-that forwards requests to the corresponding Fargate service.
+Quite simple, but powerful and scalable idea to manage different versions of API in a single API Gateway endpoint and
+ECS Fargate. The idea is to use API Gateway to route requests to different ports of Network Load Balancer that forwards
+requests to the corresponding Fargate service.
 
 ![Diagram](https://fwtbbmf399.execute-api.us-east-1.amazonaws.com/Prod/svg?source=https://raw.githubusercontent.com/vitalibo/cloudformation-library/main/semver-api/readme.md&name=diagram.svg)
 
