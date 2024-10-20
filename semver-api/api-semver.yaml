@@ -1,0 +1,291 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  Name:
+    Type: String
+    Description: "Resource name"
+
+  Vpc:
+    Type: AWS::EC2::VPC::Id
+    Description: "VPC ID"
+
+  PrivateSubnets:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: "List of private subnets"
+
+  DomainName:
+    Type: String
+    Description: "Domain name"
+
+  Image:
+    Type: String
+    Description: "Docker image"
+
+  Memory:
+    Type: Number
+    Description: "Memory in MiB"
+
+  Cpu:
+    Type: Number
+    Description: "CPU in vCPUs"
+
+  DesiredCount:
+    Type: Number
+    Description: "Desired count"
+
+  HealthCheckPath:
+    Type: String
+    Description: "Health check path"
+    Default: "/health"
+
+  ContainerPort:
+    Type: Number
+    Description: "Container port"
+    Default: 80
+
+  Major:
+    Type: Number
+    Description: "Major version"
+    MinValue: 0
+
+  Minor:
+    Type: Number
+    Description: "Minor version"
+    MinValue: 0
+
+  Patch:
+    Type: Number
+    Description: "Patch version"
+    MinValue: 0
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Stack Parameters
+        Parameters:
+          - Name
+          - Vpc
+          - PrivateSubnets
+          - DomainName
+      - Label:
+          default: Container Parameters
+        Parameters:
+          - Image
+          - Memory
+          - Cpu
+          - DesiredCount
+          - HealthCheckPath
+          - ContainerPort
+      - Label:
+          default: Semantic Version Parameters
+        Parameters:
+          - Major
+          - Minor
+          - Patch
+
+Resources:
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/${Name}-api-v${Major}-${Minor}"
+      RetentionInDays: 30
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Name}-api-v${Major}-${Minor}-ecs-task-role"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: Runtime
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "*"
+                Resource: "*"
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${Name}-api-v${Major}-${Minor}-ecs-execution-role"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: Inline
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ecr:GetAuthorizationToken"
+                  - "ecr:BatchCheckLayerAvailability"
+                  - "ecr:GetDownloadUrlForLayer"
+                  - "ecr:GetRepositoryPolicy"
+                  - "ecr:DescribeRepositories"
+                  - "ecr:ListImages"
+                  - "ecr:DescribeImages"
+                  - "ecr:BatchGetImage"
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: !GetAtt LogGroup.Arn
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${Name}-api-v${Major}-${Minor}"
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Memory: !Ref Memory
+      Cpu: !Ref Cpu
+      ContainerDefinitions:
+        - Name: api
+          Image: !Ref Image
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              HostPort: !Ref ContainerPort
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${Name}-api-v${Major}-${Minor}-sg"
+      GroupDescription: "Used by ECS service for API"
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub "${Name}-LoadBalancerSecurityGroup"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster:
+        Fn::ImportValue: !Sub "${Name}-ClusterArn"
+      ServiceName: !Sub "${Name}-api-v${Major}-${Minor}"
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      SchedulingStrategy: REPLICA
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref SecurityGroup
+          Subnets: !Ref PrivateSubnets
+      LoadBalancers:
+        - ContainerName: api
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroup
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "${Name}-api-v${Major}-${Minor}"
+      Port: !Ref ContainerPort
+      Protocol: TCP
+      TargetType: ip
+      VpcId: !Ref Vpc
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: !Ref HealthCheckPath
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      Matcher:
+        HttpCode: 200-399
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn:
+        Fn::ImportValue: !Sub "${Name}-LoadBalancerArn"
+      Port: !Sub "${Major}${Minor}"
+      Protocol: TCP
+
+  Deployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId:
+        Fn::ImportValue: !Sub "${Name}-RestApi"
+
+  LogGroupGateway:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub
+        - "API-Gateway-Execution-Logs_${RestApiId}/v${Major}_${Minor}"
+        - RestApiId: !ImportValue
+            Fn::Sub: "${Name}-RestApi"
+      RetentionInDays: 30
+
+  Stage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId:
+        Fn::ImportValue: !Sub "${Name}-RestApi"
+      DeploymentId: !Ref Deployment
+      StageName: !Sub "v${Major}_${Minor}"
+      AccessLogSetting:
+        DestinationArn: !GetAtt LogGroupGateway.Arn
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          MetricsEnabled: true
+          DataTraceEnabled: true
+          LoggingLevel: INFO
+      Variables:
+        nlbPort: !Sub "${Major}${Minor}"
+
+  PathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Properties:
+      DomainName: !Ref DomainName
+      RestApiId:
+        Fn::ImportValue: !Sub "${Name}-RestApi"
+      Stage: !Ref Stage
+      BasePath: !Sub "v${Major}.${Minor}"
+
+Outputs:
+  StageURL:
+    Value: !Sub "https://${DomainName}/v${Major}.${Minor}"
+    Description: "API stage URL"
+
+  Version:
+    Value: !Sub "${Major}.${Minor}.${Patch}"
+    Description: "Version of the API"

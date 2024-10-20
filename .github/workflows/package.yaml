@@ -29,6 +29,10 @@ jobs:
         run: |
           for MODULE in $(ls -d */); do
             MODULE=${MODULE%/}
+            if [ ! -f "$MODULE/$MODULE.yaml" ]; then
+              continue
+            fi
+          
             aws cloudformation package \
               --template-file "$MODULE/$MODULE.yaml" \
               --s3-bucket $BUCKET_NAME \
