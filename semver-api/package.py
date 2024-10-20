@@ -45,7 +45,7 @@ print('set -e;')
 cmd = (
     'aws cloudformation deploy',
     '--stack-name', stack_name + '-api',
-    '--template-file', template_file + 'api.yaml',
+    '--template-file', template_file + 'api-shared.yaml',
     '--parameter-overrides', parameter_overrides,
     *argv
 )
@@ -63,7 +63,7 @@ print(f'echo "Waiting for API endpoint /v{major}.{minor} to be created/updated..
 cmd = (
     'aws cloudformation deploy',
     '--stack-name', stack_name + '-api-latest',
-    '--template-file', template_file + 'api-semver-latest.yaml',
+    '--template-file', template_file + 'api-latest.yaml',
     '--parameter-overrides', parameter_overrides, f'Major={major}', f'Minor={minor}', f'Patch={patch}',
     *argv
 )
