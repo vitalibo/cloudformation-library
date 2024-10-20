@@ -1,4 +1,4 @@
-# Semantic Versioning RESTful API on AWS Gateway and ECS Fargate
+# Semantic Versioning API
 
 Quite simple, but powerful and scalable idea to manage different versions of API in a single API Gateway endpoint that
 deployed on ECS Fargate. The idea is to use API Gateway to route requests to different ports of Network Load Balancer
@@ -19,3 +19,63 @@ that forwards requests to the corresponding Fargate service.
 ```
 
 </details>
+
+### How to use
+
+To deploy a new version of the API, you need to execute `package.py` with arguments that you usually pass to
+`aws cloudformation deploy` command. For example:
+
+```bash
+eval $(python3 package.py \
+  --template-file ./ \
+  --stack-name demo-server \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --parameter-overrides \
+      Name=demo-server \
+      Vpc=vpc-9e91fde5 \
+      PrivateSubnets=subnet-b1610ef0,subnet-167b41e1 \
+      DomainName=semver-api.demo.io \
+      HostedZoneId=Z04603IAE131KSA10C8Q \
+      CertificateArn=arn:aws:acm:us-east-1:1234567890:certificate/f4c0b85e-41d3-4627-bcb8-060a1137b543 \
+      Image=http-hello-world \
+      Memory=1024 \
+      Cpu=512 \
+      DesiredCount=1 \
+      HealthCheckPath=/health \
+      ContainerPort=8080 \
+  --version 1.2.345 \
+  --no-update-latest \
+  --profile demo)
+```
+
+Execution of the command above will print commands that you need to execute to create/update three CloudFormation
+stacks:
+
+1. `demo-server-api` - Shared resources for all versions of the API. It includes ECS, Network Load Balancer and API Gateway.
+2. `demo-server-api-1-2` - Resources for the specific version of the API. It includes ECS Service and Task Definition and API Gateway stage for the version.
+3. `demo-server-api-latest` - Create/Update alias for the latest version of the API to the specific version. It is optional.
+
+After evaluating the commands and deploying the stacks, you can access the API at:
+
+- `https://semver-api.demo.io/v1.2/`
+- `https://semver-api.demo.io/latest/` (if you deploy the alias)
+
+Script has additional options:
+
+- `--version` - Version of the API. It is required. It should be in the format `major.minor.patch`.
+- `--no-update-latest` - Do not update alias for the latest version of the API to the specific version.
+
+#### Parameters
+
+- `Name` - Name used as a prefix for all resources.
+- `Vpc` - ID of the VPC where the API will be deployed.
+- `PrivateSubnets` - Comma-separated list of private subnets where the API will be deployed.
+- `DomainName` - Domain name of the API.
+- `HostedZoneId` - ID of the Route 53 hosted zone where the domain name is registered.
+- `CertificateArn` - ARN of the ACM certificate for the domain name.
+- `Image` - Docker image to deploy.
+- `Memory` - Memory limit for the container.
+- `Cpu` - CPU limit for the container.
+- `DesiredCount` - Desired number of running ECS tasks.
+- `HealthCheckPath` - Path for the health check. It should return 200 OK. Optional. Default is `/health`.
+- `ContainerPort` - Port on which the container listens to. Optional. Default is 80.
