@@ -52,17 +52,20 @@ Execution of the command above will print commands that you need to execute to c
 stacks:
 
 1. `demo-server-api` - Shared resources for all versions of the API. It includes ECS, Network Load Balancer and API Gateway.
-2. `demo-server-api-1-2` - Resources for the specific version of the API. It includes ECS Service and Task Definition and API Gateway stage for the version.
-3. `demo-server-api-latest` - Create/Update alias for the latest version of the API to the specific version. It is optional.
+2. `demo-server-api-v1-2` - Resources for the specific version of the API. It includes ECS Service and Task Definition and API Gateway stage for the version.
+3. `demo-server-api-v1` - Create/Update alias for the major version of the API to the specific version. It is optional.
+4. `demo-server-api-latest` - Create/Update alias for the latest version of the API to the specific version. It is optional.
 
 After evaluating the commands and deploying the stacks, you can access the API at:
 
 - `https://semver-api.demo.io/v1.2/`
+- `https://semver-api.demo.io/v1/` (if you deploy the alias)
 - `https://semver-api.demo.io/latest/` (if you deploy the alias)
 
 Script has additional options:
 
 - `--version` - Version of the API. It is required. It should be in the format `major.minor.patch`.
+- `--no-update-major` - Do not update alias for the major version of the API to the specific version.
 - `--no-update-latest` - Do not update alias for the latest version of the API to the specific version.
 
 #### Parameters

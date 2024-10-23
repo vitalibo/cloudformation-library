@@ -38,6 +38,7 @@ template_file = pop('template-file').removesuffix('api.yaml')
 parameter_overrides = pop('parameter-overrides')
 
 major, minor, patch = (pop('version') or discover_version()).split('.')
+update_major = pop('no-update-major', False) is None
 update_latest = pop('no-update-latest', False) is None
 
 print('set -e;')
@@ -59,6 +60,17 @@ cmd = (
     *argv
 )
 print(f'echo "Waiting for API endpoint /v{major}.{minor} to be created/updated...";', ' '.join(cmd), ';')
+
+cmd = (
+    'aws cloudformation deploy',
+    '--stack-name', stack_name + f'-api-v{major}',
+    '--template-file', template_file + 'api-major.yaml',
+    '--parameter-overrides', parameter_overrides, f'Major={major}', f'Minor={minor}', f'Patch={patch}',
+    *argv
+)
+
+if update_major:
+    print(f'echo "Waiting for API endpoint /v{major} to be created/updated...";', ' '.join(cmd), ';')
 
 cmd = (
     'aws cloudformation deploy',
