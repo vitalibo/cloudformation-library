@@ -5,7 +5,7 @@
 Deploying this Quick Start with the default parameters builds the following virtual networking environment in the AWS
 Cloud.
 
-![alt text](https://fwtbbmf399.execute-api.us-east-1.amazonaws.com/Prod/svg?source=https://raw.githubusercontent.com/vitalibo/cloudformation-library/main/vpc/readme.md&name=diagram.svg)
+![alt text](https://markdown-inline-svg.vitalibo.click/svg?source=https://raw.githubusercontent.com/vitalibo/cloudformation-library/main/vpc/readme.md&name=diagram.svg)
 
 <details> 
 <summary>SVG code</summary>
